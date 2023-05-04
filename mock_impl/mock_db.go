@@ -1,4 +1,4 @@
-package cache_proxy
+package mock_impl
 
 import (
 	"errors"
@@ -11,8 +11,8 @@ import (
 var ErrNotFound = errors.New("not found")
 
 type UserDatabase struct {
-	total    int
-	qryCount int
+	Total    int
+	QryCount int
 	mu       sync.Mutex
 	users    map[string]*gofakeit.PersonInfo
 }
@@ -30,7 +30,7 @@ func NewUserDatabase(size int) *UserDatabase {
 	}
 
 	return &UserDatabase{
-		total: size,
+		Total: size,
 		users: newUsers(size),
 	}
 }
@@ -39,7 +39,7 @@ func (db *UserDatabase) QueryUserById(id string) (user *gofakeit.PersonInfo, err
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	db.qryCount++
+	db.QryCount++
 	time.Sleep(10 * time.Microsecond)
 	v, ok := db.users[id]
 	if !ok {

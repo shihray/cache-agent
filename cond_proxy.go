@@ -33,23 +33,16 @@ func (proxy *SyncCondProxy[TCache, TQry]) Execute(ctx context.Context, qryOption
 
 func (proxy *SyncCondProxy[TCache, TQry]) execute(ctx context.Context, qryOption TQry, readModelType *TCache) (readModel TCache, err error) {
 
-	awaitIdle := func() (TCache, error) {
-		proxy.mu.Lock()
-		defer proxy.mu.Unlock()
-		for proxy.busy {
-			proxy.idle.Wait()
-		}
-		return proxy.baseProxy.Execute(ctx, qryOption, *readModelType)
-	}
-
 	for proxy.busy {
-		return awaitIdle()
+		return proxy.AwaitIdle(ctx, qryOption, readModelType)
 	}
 
 	proxy.SetBusy(true)
-	defer proxy.SetBusy(false)
 
-	return proxy.baseProxy.Execute(ctx, qryOption, *readModelType)
+	readModel, err = proxy.baseProxy.Execute(ctx, qryOption, *readModelType)
+
+	proxy.SetBusy(false)
+	return
 }
 
 func (proxy *SyncCondProxy[TCache, TQry]) SetBusy(b bool) {
@@ -60,4 +53,13 @@ func (proxy *SyncCondProxy[TCache, TQry]) SetBusy(b bool) {
 	if wasBusy && !proxy.busy {
 		proxy.idle.Broadcast()
 	}
+}
+
+func (proxy *SyncCondProxy[TCache, TQry]) AwaitIdle(ctx context.Context, qryOption TQry, readModelType *TCache) (readModel TCache, err error) {
+	proxy.mu.Lock()
+	defer proxy.mu.Unlock()
+	for proxy.busy {
+		proxy.idle.Wait()
+	}
+	return proxy.baseProxy.Execute(ctx, qryOption, *readModelType)
 }

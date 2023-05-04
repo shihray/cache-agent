@@ -2,19 +2,20 @@ package cache_proxy
 
 import (
 	"context"
-	"github.com/brianvoe/gofakeit/v6"
-	pkgRedis "github.com/lctech-tw/face-tools-pkg/redis"
+	"github.com/shihray/cache-agent/mock_impl"
 	"runtime"
 	"sync"
 	"testing"
+
+	"github.com/brianvoe/gofakeit/v6"
 )
 
-func dependency[TCache, TQry any]() (*BaseCacheProxy[TCache, TQry], *UserDatabase) {
-	dataSize := 2e3
+func dependency[TCache, TQry any]() (*BaseCacheProxy[TCache, TQry], *mock_impl.UserDatabase) {
+	dataSize := 2e4
 
-	db := NewUserDatabase(int(dataSize))
+	db := mock_impl.NewUserDatabase(int(dataSize))
 
-	localCache, err := pkgRedis.NewFakeClient(0)
+	localCache, err := mock_impl.NewFakeClient(0)
 	if err != nil {
 		panic(err)
 	}
@@ -66,12 +67,12 @@ func ConcurrentTester(goroutinePower uint8, fn func()) (start func(), wait func(
 	return start, wait
 }
 
-func CacheProxyBenchmarkConcurrentSingleKey(b *testing.B, proxy CacheProxy[gofakeit.PersonInfo, string], db *UserDatabase) {
+func CacheProxyBenchmarkConcurrentSingleKey(b *testing.B, proxy CacheProxy[gofakeit.PersonInfo, string], db *mock_impl.UserDatabase) {
 	ids := db.GetUserIds()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		id := ids[i%db.total]
+		id := ids[i%db.Total]
 		start, wait := ConcurrentTester(1, func() {
 			proxy.Execute(context.Background(), id, &gofakeit.PersonInfo{})
 		})
@@ -79,7 +80,7 @@ func CacheProxyBenchmarkConcurrentSingleKey(b *testing.B, proxy CacheProxy[gofak
 		wait()
 	}
 
-	b.Logf("single key: db qry count = %v, b.N=%v", db.qryCount, b.N)
+	b.Logf("single key: db qry count = %v, b.N=%v", db.QryCount, b.N)
 }
 
 func BenchmarkSyncMapProxy(b *testing.B) {
