@@ -6,20 +6,20 @@ import (
 )
 
 func UseMutex[TCache, TQry any](baseProxy *BaseCacheProxy[TCache, TQry]) CacheProxy[TCache, TQry] {
-	return &MutexProxy[TCache, TQry]{
-		transform: baseProxy.Transform,
-		cache:     baseProxy.Cache,
-		baseProxy: baseProxy,
+	base := &SyncMapProxy[TCache, TQry]{
+		BaseCacheProxy: BaseCacheProxy[TCache, TQry]{
+			Transform: baseProxy.Transform,
+			Cache:     baseProxy.Cache,
+			GetDB:     baseProxy.GetDB,
+		},
 	}
+	return base
 }
 
 type MutexProxy[TCache, TQry any] struct {
-	transform TransformQryOptionToCacheKey
-	cache     Cache[TCache]
+	BaseCacheProxy[TCache, TQry]
 
 	mu sync.Mutex
-
-	baseProxy *BaseCacheProxy[TCache, TQry]
 }
 
 func (proxy *MutexProxy[TCache, TQry]) Execute(ctx context.Context, qryOption TQry, readModelType *TCache) (readModel TCache, err error) {
@@ -29,12 +29,12 @@ func (proxy *MutexProxy[TCache, TQry]) Execute(ctx context.Context, qryOption TQ
 func (proxy *MutexProxy[TCache, TQry]) execute1(ctx context.Context, qryOption TQry, readModelType *TCache) (readModel TCache, err error) {
 	proxy.mu.Lock()
 	defer proxy.mu.Unlock()
-	return proxy.baseProxy.Execute(ctx, qryOption, *readModelType)
+	return proxy.BaseCacheProxy.Execute(ctx, qryOption, *readModelType)
 }
 
 func (proxy *MutexProxy[TCache, TQry]) execute3(ctx context.Context, qryOption TQry, readModelType *TCache) (readModel TCache, err error) {
-	key := proxy.transform(qryOption)
-	err = proxy.cache.GetValue(ctx, key, *readModelType)
+	key := proxy.Transform(qryOption)
+	err = proxy.Cache.GetValue(ctx, key, *readModelType)
 	if err == nil {
 		return *readModelType, nil
 	}

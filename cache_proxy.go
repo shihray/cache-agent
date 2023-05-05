@@ -8,7 +8,7 @@ type BaseCacheProxy[TCache, TQry any] struct {
 	GetDB     DatabaseGetFunc[TCache, TQry]
 }
 
-func (proxy *BaseCacheProxy[RespT, TQry]) Execute(ctx context.Context, qryOption TQry, respModel RespT) (RespT, error) {
+func (proxy *BaseCacheProxy[TCache, TQry]) Execute(ctx context.Context, qryOption TQry, respModel TCache) (TCache, error) {
 	key := proxy.Transform(qryOption)
 
 	// cache.get

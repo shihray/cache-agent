@@ -26,10 +26,14 @@ func (m *RedisCache[TCache]) GetValue(ctx context.Context, key string, value TCa
 		return err
 	}
 
-	if err = json.Unmarshal([]byte(resp), &value); err != nil {
-		return err
+	switch any(value).(type) {
+	case string, []byte:
+		value = any(resp).(TCache)
+	default:
+		if err = json.Unmarshal([]byte(resp), &value); err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 

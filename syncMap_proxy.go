@@ -6,21 +6,21 @@ import (
 )
 
 func UseSyncMap[TCache, TQry any](baseProxy *BaseCacheProxy[TCache, TQry]) CacheProxy[TCache, TQry] {
-	return &SyncMapProxy[TCache, TQry]{
-		transform: baseProxy.Transform,
-		cache:     baseProxy.Cache,
-		baseProxy: baseProxy,
+
+	base := &SyncMapProxy[TCache, TQry]{
+		BaseCacheProxy: BaseCacheProxy[TCache, TQry]{
+			Transform: baseProxy.Transform,
+			Cache:     baseProxy.Cache,
+			GetDB:     baseProxy.GetDB,
+		},
 	}
+	return base
 }
 
 type SyncMapProxy[TCache, TQry any] struct {
-	transform TransformQryOptionToCacheKey
-	cache     Cache[TCache]
-
+	BaseCacheProxy[TCache, TQry]
 	// Map.LoadOrStore(key, value any) (actual any, loaded bool)
 	shards sync.Map
-
-	baseProxy *BaseCacheProxy[TCache, TQry]
 }
 
 func (proxy *SyncMapProxy[TCache, TQry]) Execute(ctx context.Context, qryOption TQry, readModelType *TCache) (readModel TCache, err error) {
@@ -28,7 +28,7 @@ func (proxy *SyncMapProxy[TCache, TQry]) Execute(ctx context.Context, qryOption 
 }
 
 func (proxy *SyncMapProxy[TCache, TQry]) execute(ctx context.Context, qryOption TQry, readModelType *TCache) (readModel TCache, err error) {
-	key := proxy.transform(qryOption)
+	key := proxy.Transform(qryOption)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -48,5 +48,5 @@ func (proxy *SyncMapProxy[TCache, TQry]) execute(ctx context.Context, qryOption 
 		proxy.shards.Delete(key)
 	}()
 
-	return proxy.baseProxy.Execute(ctx, qryOption, *readModelType)
+	return proxy.BaseCacheProxy.Execute(ctx, qryOption, *readModelType)
 }

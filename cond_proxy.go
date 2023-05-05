@@ -8,19 +8,18 @@ import (
 func UseSyncCond[TCache, TQry any](baseProxy *BaseCacheProxy[TCache, TQry]) CacheProxy[TCache, TQry] {
 
 	proxy := &SyncCondProxy[TCache, TQry]{
-		transform: baseProxy.Transform,
-		cache:     baseProxy.Cache,
-
-		baseProxy: baseProxy,
+		BaseCacheProxy: BaseCacheProxy[TCache, TQry]{
+			Transform: baseProxy.Transform,
+			Cache:     baseProxy.Cache,
+			GetDB:     baseProxy.GetDB,
+		},
 	}
 	proxy.idle.L = &proxy.mu
 	return proxy
 }
 
 type SyncCondProxy[TCache, TQry any] struct {
-	transform TransformQryOptionToCacheKey
-	cache     Cache[TCache]
-	baseProxy *BaseCacheProxy[TCache, TQry]
+	BaseCacheProxy[TCache, TQry]
 
 	mu   sync.Mutex
 	idle sync.Cond
@@ -39,7 +38,7 @@ func (proxy *SyncCondProxy[TCache, TQry]) execute(ctx context.Context, qryOption
 
 	proxy.SetBusy(true)
 
-	readModel, err = proxy.baseProxy.Execute(ctx, qryOption, *readModelType)
+	readModel, err = proxy.BaseCacheProxy.Execute(ctx, qryOption, *readModelType)
 
 	proxy.SetBusy(false)
 	return
@@ -61,5 +60,5 @@ func (proxy *SyncCondProxy[TCache, TQry]) AwaitIdle(ctx context.Context, qryOpti
 	for proxy.busy {
 		proxy.idle.Wait()
 	}
-	return proxy.baseProxy.Execute(ctx, qryOption, *readModelType)
+	return proxy.BaseCacheProxy.Execute(ctx, qryOption, *readModelType)
 }
